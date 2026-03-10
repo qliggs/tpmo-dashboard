@@ -46,8 +46,10 @@ export default function EngineerTable({ engineers, projects }: Props) {
               (e) => p.engineerNames.includes(e.name) || p.engineerIds.includes(e.id)
             )
         );
-        // Use the average per-team slot for overload calculation
-        quarters[q] = Math.round(active.length * (totalAlloc / engs.length));
+        // Sum resourcesNeeded across concurrent projects — each project contributes
+        // its FTE fraction, so quarters[q] reflects true utilization percentage.
+        const fteRequired = active.reduce((sum, p) => sum + (p.resourcesNeeded ?? 1.0), 0);
+        quarters[q] = Math.round(fteRequired * 100);
       }
 
       const isOverloaded = Object.values(quarters).some((v) => v > 100);
@@ -80,7 +82,9 @@ export default function EngineerTable({ engineers, projects }: Props) {
             ["In Progress", "Ready to Start"].includes(p.status) &&
             p.engineerNames.includes(rEng.name)
         );
-        return sum + activeForEng.length * rEng.capacity;
+        // Use resourcesNeeded per project rather than counting projects × capacity
+        const fteSum = activeForEng.reduce((s, p) => s + (p.resourcesNeeded ?? 1.0), 0);
+        return sum + fteSum * rEng.capacity;
       }, 0);
 
       return {

@@ -122,6 +122,10 @@ export async function fetchRawProjects(): Promise<
         timeline,
         engineerIds,
         engineerNames: [],
+        // FTE fraction required per assigned engineer (0–N). Defaults to 1.0 if the
+        // Notion field is absent or is a relation type (getNumber returns null for
+        // non-number properties, making the fallback safe).
+        resourcesNeeded: getNumber(page, "Resources Needed Fraction") ?? 1.0,
       };
     })
     .filter((p): p is NonNullable<typeof p> => p !== null);

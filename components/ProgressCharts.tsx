@@ -20,8 +20,8 @@ const PRIORITY_COLORS: Record<string, string> = {
   Low: "#3b82f6",
 };
 
-// emerald = not started, blue = ready to start, orange = in progress, red = blocked
-const DONUT_COLORS = ["#475569", "#3b82f6", "#10b981", "#ef4444"];
+// not started → slate-400 (legible on dark bg), ready to start → blue, in progress → emerald, blocked → red
+const DONUT_COLORS = ["#94a3b8", "#3b82f6", "#10b981", "#ef4444"];
 
 const CHART_LABEL_COLOR = "#64748b"; // slate-500
 const AXIS_VALUE_COLOR = "#94a3b8"; // slate-400
@@ -85,26 +85,36 @@ export default function ProgressCharts({ projects }: Props) {
         <div className="text-sm font-semibold text-slate-300 mb-4 uppercase tracking-wide">
           Portfolio Status
         </div>
-        <ResponsiveContainer width="100%" height={240}>
+        <ResponsiveContainer width="100%" height={320}>
           <PieChart>
             <Pie
               data={statusData}
               cx="50%"
-              cy="50%"
-              innerRadius={65}
-              outerRadius={95}
+              cy="46%"
+              innerRadius={70}
+              outerRadius={105}
               dataKey="value"
               paddingAngle={2}
             >
               {statusData.map((entry, idx) => (
-                <Cell key={entry.name} fill={DONUT_COLORS[idx]} />
+                <Cell
+                  key={entry.name}
+                  fill={DONUT_COLORS[idx]}
+                  stroke="#0f172a"
+                  strokeWidth={1}
+                />
               ))}
             </Pie>
             <Tooltip {...TOOLTIP_STYLE} />
             <Legend
               iconType="circle"
               iconSize={8}
-              wrapperStyle={{ fontSize: 13, color: CHART_LABEL_COLOR }}
+              wrapperStyle={{
+                fontSize: 13,
+                color: CHART_LABEL_COLOR,
+                paddingTop: 8,
+                lineHeight: "1.8",
+              }}
             />
           </PieChart>
         </ResponsiveContainer>
@@ -116,7 +126,7 @@ export default function ProgressCharts({ projects }: Props) {
           Priority Distribution
         </div>
         <ResponsiveContainer width="100%" height={240}>
-          <BarChart data={priorityData} layout="vertical" barCategoryGap="15%">
+          <BarChart data={priorityData} layout="vertical" barCategoryGap="20%">
             <XAxis
               type="number"
               tick={{ fill: CHART_LABEL_COLOR, fontSize: 12 }}
@@ -132,14 +142,14 @@ export default function ProgressCharts({ projects }: Props) {
               width={70}
             />
             <Tooltip {...TOOLTIP_STYLE} />
-            <Bar dataKey="value" name="Projects" radius={[0, 4, 4, 0]}>
+            <Bar dataKey="value" name="Projects" radius={[0, 4, 4, 0]} barSize={24}>
               {priorityData.map((entry) => (
                 <Cell key={entry.name} fill={PRIORITY_COLORS[entry.name] ?? "#334155"} />
               ))}
               <LabelList
                 dataKey="value"
                 position="right"
-                style={{ fontSize: 12, fill: AXIS_VALUE_COLOR }}
+                style={{ fontSize: 13, fill: AXIS_VALUE_COLOR }}
                 formatter={(v) => (Number(v) > 0 ? String(v) : "")}
               />
             </Bar>
@@ -152,13 +162,14 @@ export default function ProgressCharts({ projects }: Props) {
         <div className="text-sm font-semibold text-slate-300 mb-4 uppercase tracking-wide">
           Quarterly Project Load
         </div>
-        <ResponsiveContainer width="100%" height={280}>
-          <BarChart data={quarterData} barCategoryGap="30%">
+        <ResponsiveContainer width="100%" height={300}>
+          <BarChart data={quarterData} barCategoryGap="10%">
             <XAxis
               dataKey="name"
-              tick={{ fill: CHART_LABEL_COLOR, fontSize: 12 }}
+              tick={{ fill: CHART_LABEL_COLOR, fontSize: 11, angle: -35, dy: 8 }}
               axisLine={false}
               tickLine={false}
+              height={40}
             />
             <YAxis
               tick={{ fill: CHART_LABEL_COLOR, fontSize: 12 }}
@@ -191,13 +202,14 @@ export default function ProgressCharts({ projects }: Props) {
         <div className="text-sm font-semibold text-slate-300 mb-4 uppercase tracking-wide">
           Forecasted Completions vs. At Risk
         </div>
-        <ResponsiveContainer width="100%" height={280}>
-          <BarChart data={forecastData} barCategoryGap="30%">
+        <ResponsiveContainer width="100%" height={300}>
+          <BarChart data={forecastData} barCategoryGap="10%">
             <XAxis
               dataKey="name"
-              tick={{ fill: CHART_LABEL_COLOR, fontSize: 12 }}
+              tick={{ fill: CHART_LABEL_COLOR, fontSize: 11, angle: -35, dy: 8 }}
               axisLine={false}
               tickLine={false}
+              height={40}
             />
             <YAxis
               tick={{ fill: CHART_LABEL_COLOR, fontSize: 12 }}
@@ -205,6 +217,11 @@ export default function ProgressCharts({ projects }: Props) {
               tickLine={false}
             />
             <Tooltip {...TOOLTIP_STYLE} />
+            <Legend
+              iconType="circle"
+              iconSize={8}
+              wrapperStyle={{ fontSize: 13, color: CHART_LABEL_COLOR }}
+            />
             <Bar dataKey="forecasted" name="Forecasted" fill="#10b981" radius={[4, 4, 0, 0]}>
               <LabelList
                 dataKey="forecasted"

@@ -38,10 +38,19 @@ const RECOMMENDED_ACTIONS: Record<RiskType, string> = {
 /**
  * Detect all risk flags for a project.
  * Requires projects to have startDate/endDate already calculated.
+ *
+ * @param project      The project to evaluate.
+ * @param allProjects  Full project list — used to find concurrent work per engineer.
+ * @param engineers    Engineer roster for capacity info.
+ * @param warnPct      Overallocation warning threshold (default 100 = 1.0 FTE).
+ * @param critPct      Overallocation critical threshold (default 130 = 1.3 FTE).
  */
 export function detectProjectRisks(
   project: Project,
-  engineers: Engineer[]
+  allProjects: Project[],
+  engineers: Engineer[],
+  warnPct = 100,
+  critPct = 130
 ): RiskFlag[] {
   const flags: RiskFlag[] = [];
 
@@ -65,21 +74,42 @@ export function detectProjectRisks(
     }
   }
 
-  // 2. Engineer overallocation
+  // 2. Engineer overallocation — sum resourcesNeeded across concurrent projects
+  const projStart = safeDate(project.startDate);
+  const projEnd = safeDate(project.endDate);
+
   for (const engineerName of project.engineerNames) {
     const eng = engineers.find((e) => e.name === engineerName);
     if (!eng) continue;
 
-    // Count concurrent projects for this engineer during this project's window
-    // (simplified: check if allocation sum would exceed capacity)
-    const allocationFrac = eng.allocationPct / 100;
-    // If an engineer is committed at > 100% capacity, flag
-    if (allocationFrac > 1.0) {
-      const severity: RiskSeverity = allocationFrac > 1.3 ? "critical" : "warning";
+    // Collect all projects this engineer is on that overlap with the current project
+    const concurrent = allProjects.filter((p) => {
+      if (!p.engineerNames.includes(engineerName)) return false;
+      // Always include self so its resourcesNeeded counts
+      if (p.id === project.id) return true;
+      // Skip projects with no usable dates
+      const pStart = safeDate(p.startDate);
+      const pEnd = safeDate(p.endDate);
+      if (!pStart || !pEnd || !projStart || !projEnd) return false;
+      // Overlapping date ranges: A.start <= B.end && A.end >= B.start
+      return pStart <= projEnd && pEnd >= projStart;
+    });
+
+    // Sum the FTE fraction required across all concurrent projects
+    const totalFTE = concurrent.reduce(
+      (sum, p) => sum + (p.resourcesNeeded ?? 1.0),
+      0
+    );
+
+    const warnFrac = warnPct / 100;
+    const critFrac = critPct / 100;
+
+    if (totalFTE > warnFrac) {
+      const severity: RiskSeverity = totalFTE > critFrac ? "critical" : "warning";
       flags.push({
         type: "ENGINEER_OVERALLOCATION",
         severity,
-        reason: `${engineerName} is allocated at ${eng.allocationPct}%, exceeding 100% capacity.`,
+        reason: `${engineerName} is committed at ${Math.round(totalFTE * 100)}% across ${concurrent.length} concurrent project${concurrent.length !== 1 ? "s" : ""}, exceeding ${warnPct}% capacity.`,
         affectedEngineer: engineerName,
         recommendedAction: RECOMMENDED_ACTIONS.ENGINEER_OVERALLOCATION,
       });
@@ -123,13 +153,20 @@ export function detectProjectRisks(
 /**
  * Run risk detection across all projects.
  * Returns projects with risks populated.
+ *
+ * @param projects   All projects (needed for concurrent-project lookups).
+ * @param engineers  Engineer roster.
+ * @param warnPct    Overallocation warning threshold % (default 100).
+ * @param critPct    Overallocation critical threshold % (default 130).
  */
 export function runRiskDetector(
   projects: Project[],
-  engineers: Engineer[]
+  engineers: Engineer[],
+  warnPct = 100,
+  critPct = 130
 ): Project[] {
   return projects.map((p) => ({
     ...p,
-    risks: detectProjectRisks(p, engineers),
+    risks: detectProjectRisks(p, projects, engineers, warnPct, critPct),
   }));
 }

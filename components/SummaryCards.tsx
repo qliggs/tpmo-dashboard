@@ -74,7 +74,7 @@ export default function SummaryCards({ projects, engineers }: Props) {
 
   const atRisk = projects.filter((p) => p.risks.length > 0);
 
-  // Over-allocated: engineer with more projects concurrent than capacity allows
+  // Over-allocated: sum resourcesNeeded across concurrent active projects > 1.0 FTE
   const engineerAllocMap: Record<string, number> = {};
   for (const eng of engineers) {
     const concurrentProjects = projects.filter(
@@ -83,9 +83,21 @@ export default function SummaryCards({ projects, engineers }: Props) {
         p.status &&
         ["In Progress", "Ready to Start"].includes(p.status)
     );
-    engineerAllocMap[eng.name] = concurrentProjects.length * (eng.allocationPct / 100);
+    // Correct formula: sum of FTE fractions required across concurrent projects
+    engineerAllocMap[eng.name] = concurrentProjects.reduce(
+      (sum, p) => sum + (p.resourcesNeeded ?? 1.0),
+      0
+    );
   }
-  const overAllocEngineers = Object.values(engineerAllocMap).filter((v) => v > 1.0).length;
+  // Deduplicate by name (engineers can appear on multiple teams)
+  const uniqueAllocValues = Object.entries(engineerAllocMap).reduce<Record<string, number>>(
+    (acc, [name, frac]) => {
+      acc[name] = (acc[name] ?? 0) + frac;
+      return acc;
+    },
+    {}
+  );
+  const overAllocEngineers = Object.values(uniqueAllocValues).filter((v) => v > 1.0).length;
 
   // Teams over capacity (simplified: check if any at-risk projects belong to teams with high load)
   const teamsOverCapacity = TEAM_NAMES.filter((team) => {

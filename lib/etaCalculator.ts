@@ -38,9 +38,13 @@ export function quarterStartDate(timeline: string): Date | null {
 
 /**
  * Returns the number of weeks for a given T-shirt size.
+ * Accepts an optional custom size map that overrides built-in defaults.
  */
-export function sizeToWeeks(size: TShirtSize): number {
-  return SIZE_TO_WEEKS[size] ?? 4;
+export function sizeToWeeks(
+  size: TShirtSize,
+  customSizes?: Partial<Record<TShirtSize, number>>
+): number {
+  return customSizes?.[size] ?? SIZE_TO_WEEKS[size] ?? 4;
 }
 
 /**
@@ -53,14 +57,17 @@ export function sizeToWeeks(size: TShirtSize): number {
  * - If neither, fall back to today + duration
  *
  * Returns { startDate, endDate, endDateCalculated }
+ *
+ * @param customSizes  Optional T-shirt size overrides from user settings.
  */
 export function calculateDates(
   startDateISO: string,
   endDateISO: string,
   tshirtSize: TShirtSize | null,
-  timeline: string | null
+  timeline: string | null,
+  customSizes?: Partial<Record<TShirtSize, number>>
 ): { startDate: string; endDate: string; endDateCalculated: boolean } {
-  const durationWeeks = tshirtSize ? sizeToWeeks(tshirtSize) : 4;
+  const durationWeeks = tshirtSize ? sizeToWeeks(tshirtSize, customSizes) : 4;
 
   // Determine start date
   let startDate: string;

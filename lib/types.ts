@@ -33,6 +33,11 @@ export interface Project {
   engineerIds: string[];
   /** Names resolved from roster */
   engineerNames: string[];
+  /**
+   * FTE fraction required from each assigned engineer for this project.
+   * 1.0 = one full engineer. Default 1.0 if not specified in Notion.
+   */
+  resourcesNeeded: number;
   risks: RiskFlag[];
   cascadeDelay?: CascadeDelay;
 }

@@ -2,6 +2,7 @@
 
 import { useState, useMemo } from "react";
 import { Project } from "@/lib/types";
+import { useSettings } from "@/lib/settingsContext";
 
 type ViewMode = "date" | "initiative" | "quarter" | "h1" | "h2" | "annual";
 
@@ -70,7 +71,11 @@ const TITLE_LABELS: Record<ViewMode, string> = {
 };
 
 export default function GanttView({ projects }: Props) {
-  const [viewMode, setViewMode] = useState<ViewMode>("date");
+  const { settings } = useSettings();
+
+  const [viewMode, setViewMode] = useState<ViewMode>(
+    settings.display.defaultGanttView
+  );
   const [filterQuarter, setFilterQuarter] = useState<string>("all");
   const [filterPriority, setFilterPriority] = useState<string>("all");
   const [filterStatus, setFilterStatus] = useState<string>("all");
@@ -89,8 +94,22 @@ export default function GanttView({ projects }: Props) {
 
   const WEEK_PX = 18;
 
-  const filtered = useMemo(() => {
+  // Safety-net: always exclude Archived/Cancelled unless showArchived is on;
+  // optionally exclude Not Started based on display settings.
+  const visibleProjects = useMemo(() => {
     return projects.filter((p) => {
+      if (p.status === "Archived" || p.status === "Cancelled") {
+        return settings.display.showArchived;
+      }
+      if (p.status === "Not Started" && !settings.display.showNotStarted) {
+        return false;
+      }
+      return true;
+    });
+  }, [projects, settings.display.showArchived, settings.display.showNotStarted]);
+
+  const filtered = useMemo(() => {
+    return visibleProjects.filter((p) => {
       if (filterQuarter !== "all") {
         const tl = p.timeline ?? "";
         if (filterQuarter === "H1 2026") {
@@ -107,7 +126,7 @@ export default function GanttView({ projects }: Props) {
       if (filterStatus !== "all" && p.status !== filterStatus) return false;
       return true;
     });
-  }, [projects, filterQuarter, filterPriority, filterStatus]);
+  }, [visibleProjects, filterQuarter, filterPriority, filterStatus]);
 
   const groups = useMemo((): { header: string | null; rows: Project[]; bold?: boolean }[] => {
     const byDate = (a: Project, b: Project) => a.startDate.localeCompare(b.startDate);
@@ -195,13 +214,13 @@ export default function GanttView({ projects }: Props) {
           Gantt — {TITLE_LABELS[viewMode]}
         </span>
 
-        {/* View mode toggle — underline style */}
+        {/* View mode toggle */}
         <div className="flex items-stretch h-8 gap-0 border border-slate-700 rounded-md overflow-hidden">
           {(Object.keys(VIEW_LABELS) as ViewMode[]).map((m) => (
             <button
               key={m}
               onClick={() => setViewMode(m)}
-              className={`px-3 text-xs font-medium transition-colors border-r border-slate-700 last:border-r-0 ${
+              className={`px-3 text-[13px] font-medium transition-colors border-r border-slate-700 last:border-r-0 ${
                 viewMode === m
                   ? "bg-blue-600/20 text-blue-400"
                   : "text-slate-500 hover:text-slate-300 hover:bg-slate-800/60"
@@ -301,7 +320,6 @@ export default function GanttView({ projects }: Props) {
           )}
 
           {groups.map(({ header, rows, bold }, gi) => {
-            // Compute starting row index for alternating
             const groupStartIdx = groups.slice(0, gi).reduce((s, g) => s + g.rows.length, 0);
 
             return (
@@ -370,6 +388,11 @@ export default function GanttView({ projects }: Props) {
                   const statusColor = STATUS_COLORS[project.status ?? "Not Started"] ?? "bg-slate-600";
                   const priorityDot = PRIORITY_DOT[project.priority ?? "Low"] ?? "bg-slate-500";
 
+                  const showGhost =
+                    settings.display.showCascadeGhost &&
+                    origBarStart !== null &&
+                    origBarWidth !== null;
+
                   return (
                     <div
                       key={project.id}
@@ -381,8 +404,10 @@ export default function GanttView({ projects }: Props) {
                       <div className="w-72 shrink-0 px-3 py-3 border-r border-slate-800 flex items-center gap-2">
                         <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${priorityDot}`} />
                         <div className="min-w-0">
-                          <div className="text-sm text-slate-200 truncate">{project.initiative}</div>
-                          <div className="text-xs text-slate-500 truncate">{project.status}</div>
+                          <div className="text-sm font-medium text-slate-200 truncate">
+                            {project.initiative}
+                          </div>
+                          <div className="text-xs text-slate-400 truncate">{project.status}</div>
                         </div>
                         {isAtRisk && (
                           <span className="ml-auto text-xs text-red-400 shrink-0 font-bold">!</span>
@@ -395,12 +420,12 @@ export default function GanttView({ projects }: Props) {
                         style={{ minWidth: `${activeTotalWeeks * WEEK_PX}px` }}
                       >
                         {/* Ghost bar for cascade delay */}
-                        {origBarStart !== null && origBarWidth !== null && (
+                        {showGhost && (
                           <div
                             className="absolute top-4 h-5 rounded-md bg-slate-700/40 border border-dashed border-slate-600"
                             style={{
-                              left: `${origBarStart * WEEK_PX}px`,
-                              width: `${origBarWidth * WEEK_PX}px`,
+                              left: `${origBarStart! * WEEK_PX}px`,
+                              width: `${origBarWidth! * WEEK_PX}px`,
                             }}
                           />
                         )}
@@ -444,10 +469,12 @@ export default function GanttView({ projects }: Props) {
             {label}
           </span>
         ))}
-        <span className="flex items-center gap-1.5">
-          <span className="inline-block w-3 h-2 rounded-md border border-dashed border-slate-600 bg-slate-700/40" />
-          Cascade (original)
-        </span>
+        {settings.display.showCascadeGhost && (
+          <span className="flex items-center gap-1.5">
+            <span className="inline-block w-3 h-2 rounded-md border border-dashed border-slate-600 bg-slate-700/40" />
+            Cascade (original)
+          </span>
+        )}
         <span className="flex items-center gap-1.5">
           <span className="inline-block w-3 h-2 rounded-md ring-1 ring-orange-500/60 bg-slate-600" />
           At Risk

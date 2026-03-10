@@ -126,6 +126,9 @@ export default function CapacityHeatmap({ data }: Props) {
               <th className="text-left text-xs text-slate-500 font-semibold w-44 pr-4 bg-slate-900">
                 Team
               </th>
+              <th className="text-left text-xs text-slate-500 font-semibold pr-4 bg-slate-900 whitespace-nowrap">
+                Committed FTE
+              </th>
               {data.months.map((m) => (
                 <th
                   key={m}
@@ -144,28 +147,58 @@ export default function CapacityHeatmap({ data }: Props) {
             </tr>
           </thead>
           <tbody>
-            {data.teams.map((team, teamIdx) => (
-              <tr key={team} className={teamIdx % 2 === 1 ? "bg-slate-800/10" : ""}>
-                <td className="text-xs text-slate-400 pr-4 whitespace-nowrap font-medium">
-                  {team}
-                </td>
-                {data.months.map((month) => {
-                  const cell = cellMap[team]?.[month];
-                  if (!cell) {
+            {data.teams.map((team, teamIdx) => {
+              // Aggregate FTE committed/available across all displayed months for this team
+              const teamCells = data.months
+                .map((m) => cellMap[team]?.[m])
+                .filter((c): c is CapacityCell => !!c);
+
+              // Prefer current month; fall back to max-committed month
+              const currentCell = cellMap[team]?.[currentMonth];
+              const peakCell =
+                currentCell ??
+                teamCells.reduce<CapacityCell | undefined>((best, c) =>
+                  !best || c.initiativeFTECommitted > best.initiativeFTECommitted ? c : best,
+                  undefined
+                );
+
+              const committed = peakCell?.initiativeFTECommitted ?? 0;
+              const available = peakCell?.initiativeFTEAvailable ?? 0;
+              const isOver = available > 0 && committed > available;
+
+              return (
+                <tr key={team} className={teamIdx % 2 === 1 ? "bg-slate-800/10" : ""}>
+                  <td className="text-xs text-slate-400 pr-4 whitespace-nowrap font-medium">
+                    {team}
+                  </td>
+                  <td className="pr-4 whitespace-nowrap">
+                    <span
+                      className={`text-xs font-mono ${
+                        isOver ? "text-amber-400" : "text-slate-400"
+                      }`}
+                    >
+                      {committed.toFixed(1)} / {available.toFixed(1)}
+                      <span className="text-slate-600 ml-0.5">FTE</span>
+                    </span>
+                  </td>
+                  {data.months.map((month) => {
+                    const cell = cellMap[team]?.[month];
+                    if (!cell) {
+                      return (
+                        <td key={month}>
+                          <div className="w-16 h-12 bg-slate-800/50 rounded-md" />
+                        </td>
+                      );
+                    }
                     return (
-                      <td key={month}>
-                        <div className="w-16 h-12 bg-slate-800/50 rounded-md" />
+                      <td key={month} className="relative">
+                        <Cell cell={cell} mode={mode} />
                       </td>
                     );
-                  }
-                  return (
-                    <td key={month} className="relative">
-                      <Cell cell={cell} mode={mode} />
-                    </td>
-                  );
-                })}
-              </tr>
-            ))}
+                  })}
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       </div>
