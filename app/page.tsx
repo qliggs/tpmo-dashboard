@@ -39,8 +39,8 @@ export default async function DashboardPage() {
       <Nav />
       <main className="max-w-screen-2xl mx-auto px-6 py-6 space-y-6">
         <div className="flex items-baseline gap-3">
-          <h1 className="text-sm font-semibold text-zinc-200">Portfolio Overview</h1>
-          <span className="text-xs text-zinc-600">
+          <h1 className="text-xl font-semibold text-slate-100 tracking-tight">Portfolio Overview</h1>
+          <span className="text-sm text-slate-600">
             Updated {new Date(data.generatedAt).toLocaleTimeString()}
           </span>
         </div>

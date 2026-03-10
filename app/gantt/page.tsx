@@ -7,7 +7,9 @@ async function getProjects(): Promise<Project[]> {
     const base = process.env.NEXT_PUBLIC_BASE_URL ?? "http://localhost:3000";
     const res = await fetch(`${base}/api/projects`, { next: { revalidate: 60 } });
     if (!res.ok) return [];
-    return res.json();
+    const data = await res.json();
+    // Route returns { projects, warnings } — extract projects
+    return Array.isArray(data) ? data : (data.projects ?? []);
   } catch {
     return [];
   }
@@ -20,7 +22,7 @@ export default async function GanttPage() {
     <>
       <Nav />
       <main className="max-w-screen-2xl mx-auto px-6 py-6 space-y-4">
-        <h1 className="text-sm font-semibold text-zinc-200">Gantt Chart</h1>
+        <h1 className="text-xl font-semibold text-slate-100 tracking-tight">Gantt Chart</h1>
         <GanttView projects={projects} />
       </main>
     </>

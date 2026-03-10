@@ -7,6 +7,8 @@ import { Project } from "@/lib/types";
 export const revalidate = 60;
 
 export async function GET() {
+  const warnings: string[] = [];
+
   try {
     const [rawProjects, engineers] = await Promise.all([
       fetchRawProjects(),
@@ -15,31 +17,39 @@ export async function GET() {
 
     const engineerById = new Map(engineers.map((e) => [e.id, e]));
 
-    const projects: Project[] = rawProjects.map((p) => {
-      const { startDate, endDate, endDateCalculated } = calculateDates(
-        p.startDate,
-        p.endDate,
-        p.tshirtSize,
-        p.timeline
-      );
+    // Per-project isolation
+    const projects: Project[] = [];
+    for (const p of rawProjects) {
+      try {
+        const { startDate, endDate, endDateCalculated } = calculateDates(
+          p.startDate,
+          p.endDate,
+          p.tshirtSize,
+          p.timeline
+        );
 
-      const engineerNames = p.engineerIds
-        .map((id) => engineerById.get(id)?.name)
-        .filter(Boolean) as string[];
+        const engineerNames = p.engineerIds
+          .map((id) => engineerById.get(id)?.name)
+          .filter(Boolean) as string[];
 
-      return {
-        ...p,
-        startDate,
-        endDate,
-        endDateCalculated,
-        engineerNames,
-        risks: [],
-      };
-    });
+        projects.push({
+          ...p,
+          startDate,
+          endDate,
+          endDateCalculated,
+          engineerNames,
+          risks: [],
+        });
+      } catch (err) {
+        warnings.push(
+          `Skipped project "${p.initiative || p.id}": ${String(err)}`
+        );
+      }
+    }
 
     const capacityPayload = calculateCapacityIndex(projects, engineers);
 
-    return NextResponse.json(capacityPayload);
+    return NextResponse.json({ ...capacityPayload, warnings });
   } catch (err) {
     console.error("[/api/capacity]", err);
     return NextResponse.json(

@@ -1,25 +1,25 @@
 import { Project, Engineer, RiskFlag, RiskSeverity, RiskType } from "./types";
-import { quarterStartDate } from "./etaCalculator";
-import { Timeline } from "./types";
+import { safeDate } from "./utils";
 
-const QUARTERS: Timeline[] = [
+const QUARTERS: string[] = [
   "Q1 2026", "Q2 2026", "Q3 2026", "Q4 2026",
   "Q1 2027", "Q2 2027", "Q3 2027", "Q4 2027",
 ];
 
 /** Returns the quarter string that a date falls in, or null */
-function getQuarterForDate(iso: string): Timeline | null {
+function getQuarterForDate(iso: string): string | null {
   if (!iso) return null;
-  const d = new Date(iso);
+  const d = safeDate(iso);
+  if (!d) return null;
   const month = d.getMonth(); // 0-indexed
   const year = d.getFullYear();
   const quarter =
     month < 3 ? "Q1" : month < 6 ? "Q2" : month < 9 ? "Q3" : "Q4";
-  return `${quarter} ${year}` as Timeline;
+  return `${quarter} ${year}`;
 }
 
-/** Returns the quarter index (0–3) or -1 */
-function quarterIndex(q: Timeline | null): number {
+/** Returns the quarter index in the known list, or -1 */
+function quarterIndex(q: string | null): number {
   if (!q) return -1;
   return QUARTERS.indexOf(q);
 }
@@ -53,7 +53,7 @@ export function detectProjectRisks(
     const plannedIdx = quarterIndex(plannedQuarter);
     const calcIdx = quarterIndex(calculatedQuarter);
 
-    if (calcIdx > plannedIdx) {
+    if (plannedIdx !== -1 && calcIdx > plannedIdx) {
       const slipQuarters = calcIdx - plannedIdx;
       const severity: RiskSeverity = slipQuarters > 1 ? "critical" : "warning";
       flags.push({
@@ -102,16 +102,18 @@ export function detectProjectRisks(
   // 4. End date slip — calculated end is 14+ days after Notion end date
   // (only meaningful if endDate was not calculated by us)
   if (!project.endDateCalculated && project.cascadeDelay?.newEnd) {
-    const original = new Date(project.endDate);
-    const newEnd = new Date(project.cascadeDelay.newEnd);
-    const diffDays = (newEnd.getTime() - original.getTime()) / 86400000;
-    if (diffDays >= 14) {
-      flags.push({
-        type: "END_DATE_SLIP",
-        severity: diffDays >= 90 ? "critical" : "warning",
-        reason: `Cascade delay pushes end date ${Math.round(diffDays)} days past original end date.`,
-        recommendedAction: RECOMMENDED_ACTIONS.END_DATE_SLIP,
-      });
+    const original = safeDate(project.endDate);
+    const newEnd = safeDate(project.cascadeDelay.newEnd);
+    if (original && newEnd) {
+      const diffDays = (newEnd.getTime() - original.getTime()) / 86400000;
+      if (diffDays >= 14) {
+        flags.push({
+          type: "END_DATE_SLIP",
+          severity: diffDays >= 90 ? "critical" : "warning",
+          reason: `Cascade delay pushes end date ${Math.round(diffDays)} days past original end date.`,
+          recommendedAction: RECOMMENDED_ACTIONS.END_DATE_SLIP,
+        });
+      }
     }
   }
 

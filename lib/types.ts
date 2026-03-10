@@ -1,15 +1,18 @@
-/** Notion project statuses */
+/** Notion project statuses — includes all known Notion values + Unknown fallback */
 export type ProjectStatus =
   | "Not Started"
   | "Ready to Start"
   | "In Progress"
-  | "Blocked";
+  | "Blocked"
+  | "Archived"
+  | "Cancelled"
+  | "Unknown";
 
 export type Priority = "Low" | "Medium" | "High" | "Critical";
-export type TShirtSize = "S" | "M" | "L" | "XL";
-export type Timeline =
-  | "Q1 2026" | "Q2 2026" | "Q3 2026" | "Q4 2026"
-  | "Q1 2027" | "Q2 2027" | "Q3 2027" | "Q4 2027";
+export type TShirtSize = "S" | "M" | "L" | "XL" | "XXL";
+
+/** Normalized quarter string, e.g. "Q2 2026". Kept as string for Notion flexibility. */
+export type Timeline = string;
 
 /** Normalized project as returned by our API */
 export interface Project {
@@ -77,6 +80,8 @@ export interface PortfolioPayload {
   projects: Project[];
   engineers: Engineer[];
   generatedAt: string;
+  /** Non-fatal data issues encountered during fetch/transform */
+  warnings: string[];
 }
 
 /** Capacity index cell */

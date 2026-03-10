@@ -1,11 +1,6 @@
 import { Project, Engineer, CascadeDelay } from "./types";
 import { sizeToWeeks } from "./etaCalculator";
-
-function addWeeks(dateISO: string, weeks: number): string {
-  const d = new Date(dateISO);
-  d.setDate(d.getDate() + weeks * 7);
-  return d.toISOString().split("T")[0];
-}
+import { safeDate, addWeeksToISO } from "./utils";
 
 function laterDate(a: string, b: string): string {
   return a >= b ? a : b;
@@ -41,26 +36,27 @@ export function runCascadeEngine(
 
     for (const engineer of engineers) {
       // Collect all projects for this engineer
-      const assigned = result.filter((p) =>
-        p.engineerNames.includes(engineer.name) ||
-        p.engineerIds.includes(engineer.id)
+      const assigned = result.filter(
+        (p) =>
+          p.engineerNames.includes(engineer.name) ||
+          p.engineerIds.includes(engineer.id)
       );
 
       if (assigned.length === 0) continue;
 
-      // Sort by start date
+      // Sort by start date — skip projects with no valid start date
       assigned.sort((a, b) => a.startDate.localeCompare(b.startDate));
 
       // Engineer free date = max end date of active (non-future) projects
       const activeStatuses = ["In Progress", "Ready to Start"];
-      const activeProjects = assigned.filter((p) =>
-        p.status && activeStatuses.includes(p.status)
+      const activeProjects = assigned.filter(
+        (p) => p.status && activeStatuses.includes(p.status)
       );
 
       let engineerFreeDate =
         activeProjects.length > 0
           ? activeProjects.reduce(
-              (max, p) => laterDate(max, p.endDate),
+              (max, p) => (p.endDate ? laterDate(max, p.endDate) : max),
               "2000-01-01"
             )
           : "2000-01-01";
@@ -72,7 +68,9 @@ export function runCascadeEngine(
 
       // Check future projects
       for (const project of assigned) {
-        if (!project.startDate) continue;
+        // Skip projects without valid dates — cannot cascade
+        if (!project.startDate || !safeDate(project.startDate)) continue;
+        if (!project.endDate || !safeDate(project.endDate)) continue;
         if (project.status === "In Progress") continue; // already started
 
         if (engineerFreeDate > project.startDate) {
@@ -80,7 +78,13 @@ export function runCascadeEngine(
           const durationWeeks = project.tshirtSize
             ? sizeToWeeks(project.tshirtSize)
             : 4;
-          const newEnd = addWeeks(newStart, durationWeeks);
+          const computedEnd = addWeeksToISO(newStart, durationWeeks);
+          if (!computedEnd) {
+            // Cannot calculate — advance free date and continue
+            engineerFreeDate = laterDate(engineerFreeDate, project.endDate);
+            continue;
+          }
+          const newEnd = computedEnd;
 
           // Find blocking project
           const blockingProject =
@@ -98,7 +102,7 @@ export function runCascadeEngine(
                   originalStart: project.startDate,
                   newStart,
                   newEnd,
-                },
+                } satisfies CascadeDelay,
               };
             }
             changed = true;

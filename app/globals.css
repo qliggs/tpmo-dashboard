@@ -3,13 +3,15 @@
 @tailwind utilities;
 
 :root {
-  --background: #09090b;
-  --foreground: #f4f4f5;
+  --background: #090E1A;
+  --foreground: #e2e8f0;
+  --accent: #3b82f6;
 }
 
 body {
   color: var(--foreground);
   background: var(--background);
+  font-size: 15px;
 }
 
 @layer utilities {
@@ -21,10 +23,13 @@ body {
     width: 4px;
   }
   .scrollbar-thin::-webkit-scrollbar-track {
-    background: #18181b;
+    background: #0f172a;
   }
   .scrollbar-thin::-webkit-scrollbar-thumb {
-    background: #3f3f46;
+    background: #334155;
     border-radius: 2px;
+  }
+  .font-data {
+    font-family: var(--font-mono), ui-monospace, monospace;
   }
 }

@@ -19,19 +19,33 @@ function Card({
   sub?: string;
   accent?: "red" | "orange" | "yellow" | "green" | "blue";
 }) {
-  const accentClass = {
+  const borderClass = {
+    red: "border-l-red-500",
+    orange: "border-l-amber-500",
+    yellow: "border-l-yellow-500",
+    green: "border-l-emerald-500",
+    blue: "border-l-blue-500",
+  }[accent ?? "blue"];
+
+  const valueClass = {
     red: "text-red-400",
-    orange: "text-orange-400",
+    orange: "text-amber-400",
     yellow: "text-yellow-400",
-    green: "text-green-400",
+    green: "text-emerald-400",
     blue: "text-blue-400",
-  }[accent ?? "green"];
+  }[accent ?? "blue"];
 
   return (
-    <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-4 flex flex-col gap-2">
-      <span className="text-xs text-zinc-500 uppercase tracking-wider">{label}</span>
-      <span className={`text-3xl font-bold ${accentClass}`}>{value}</span>
-      {sub && <span className="text-xs text-zinc-500">{sub}</span>}
+    <div
+      className={`bg-slate-900 border border-slate-800 border-l-2 ${borderClass} rounded-lg p-6 flex flex-col gap-1 hover:bg-slate-800/50 transition-colors`}
+    >
+      <span className="text-xs text-slate-500 uppercase tracking-wider font-semibold">
+        {label}
+      </span>
+      <span className={`text-4xl font-bold font-mono leading-none mt-1 ${valueClass}`}>
+        {value}
+      </span>
+      {sub && <span className="text-xs text-slate-600 mt-1">{sub}</span>}
     </div>
   );
 }
@@ -107,7 +121,7 @@ export default function SummaryCards({ projects, engineers }: Props) {
         accent={overAllocEngineers > 0 ? "orange" : "green"}
       />
       <Card
-        label="Teams Over Capacity"
+        label="Over-Cap Teams"
         value={teamsOverCapacity}
         sub="initiative index > 100"
         accent={teamsOverCapacity > 0 ? "orange" : "green"}

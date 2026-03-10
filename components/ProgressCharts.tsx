@@ -4,7 +4,7 @@ import { useMemo } from "react";
 import { Project } from "@/lib/types";
 import {
   PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, Tooltip,
-  ResponsiveContainer, Legend,
+  ResponsiveContainer, Legend, LabelList,
 } from "recharts";
 
 interface Props {
@@ -20,20 +20,22 @@ const PRIORITY_COLORS: Record<string, string> = {
   Low: "#3b82f6",
 };
 
-const DONUT_COLORS = ["#16a34a", "#3b82f6", "#f97316", "#ef4444"];
+// emerald = not started, blue = ready to start, orange = in progress, red = blocked
+const DONUT_COLORS = ["#475569", "#3b82f6", "#10b981", "#ef4444"];
+
+const CHART_LABEL_COLOR = "#64748b"; // slate-500
+const AXIS_VALUE_COLOR = "#94a3b8"; // slate-400
 
 export default function ProgressCharts({ projects }: Props) {
-  // Portfolio completion by quarter
   const quarterData = useMemo(() =>
     QUARTERS.map((q) => {
       const inQ = projects.filter((p) => p.timeline === q);
-      const done = inQ.filter((p) => p.status === "In Progress").length; // proxy
+      const done = inQ.filter((p) => p.status === "In Progress").length;
       return { name: q, total: inQ.length, inProgress: done };
     }),
     [projects]
   );
 
-  // Priority distribution
   const priorityData = useMemo(() => {
     const counts: Record<string, number> = { Critical: 0, High: 0, Medium: 0, Low: 0 };
     for (const p of projects) {
@@ -42,7 +44,6 @@ export default function ProgressCharts({ projects }: Props) {
     return Object.entries(counts).map(([name, value]) => ({ name, value }));
   }, [projects]);
 
-  // Status donut
   const statusData = useMemo(() => {
     const counts: Record<string, number> = {
       "Not Started": 0,
@@ -56,7 +57,6 @@ export default function ProgressCharts({ projects }: Props) {
     return Object.entries(counts).map(([name, value]) => ({ name, value }));
   }, [projects]);
 
-  // Forecasted completions by quarter
   const forecastData = useMemo(() =>
     QUARTERS.map((q) => ({
       name: q,
@@ -68,27 +68,31 @@ export default function ProgressCharts({ projects }: Props) {
 
   const TOOLTIP_STYLE = {
     contentStyle: {
-      background: "#18181b",
-      border: "1px solid #3f3f46",
+      background: "#0f172a",
+      border: "1px solid #1e293b",
       borderRadius: 6,
       fontSize: 11,
+      fontFamily: "var(--font-sans)",
     },
-    labelStyle: { color: "#e4e4e7" },
+    labelStyle: { color: "#e2e8f0" },
+    itemStyle: { color: AXIS_VALUE_COLOR },
   };
 
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
       {/* Status Donut */}
-      <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-4">
-        <div className="text-xs font-semibold text-zinc-300 mb-4">Portfolio Status</div>
-        <ResponsiveContainer width="100%" height={220}>
+      <div className="bg-slate-900 border border-slate-800 rounded-lg p-4">
+        <div className="text-sm font-semibold text-slate-300 mb-4 uppercase tracking-wide">
+          Portfolio Status
+        </div>
+        <ResponsiveContainer width="100%" height={240}>
           <PieChart>
             <Pie
               data={statusData}
               cx="50%"
               cy="50%"
-              innerRadius={55}
-              outerRadius={80}
+              innerRadius={65}
+              outerRadius={95}
               dataKey="value"
               paddingAngle={2}
             >
@@ -100,53 +104,123 @@ export default function ProgressCharts({ projects }: Props) {
             <Legend
               iconType="circle"
               iconSize={8}
-              wrapperStyle={{ fontSize: 11, color: "#a1a1aa" }}
+              wrapperStyle={{ fontSize: 13, color: CHART_LABEL_COLOR }}
             />
           </PieChart>
         </ResponsiveContainer>
       </div>
 
       {/* Priority Distribution */}
-      <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-4">
-        <div className="text-xs font-semibold text-zinc-300 mb-4">Priority Distribution</div>
-        <ResponsiveContainer width="100%" height={220}>
-          <BarChart data={priorityData} layout="vertical" barCategoryGap="25%">
-            <XAxis type="number" tick={{ fill: "#71717a", fontSize: 11 }} axisLine={false} tickLine={false} />
-            <YAxis dataKey="name" type="category" tick={{ fill: "#a1a1aa", fontSize: 11 }} axisLine={false} tickLine={false} width={65} />
+      <div className="bg-slate-900 border border-slate-800 rounded-lg p-4">
+        <div className="text-sm font-semibold text-slate-300 mb-4 uppercase tracking-wide">
+          Priority Distribution
+        </div>
+        <ResponsiveContainer width="100%" height={240}>
+          <BarChart data={priorityData} layout="vertical" barCategoryGap="15%">
+            <XAxis
+              type="number"
+              tick={{ fill: CHART_LABEL_COLOR, fontSize: 12 }}
+              axisLine={false}
+              tickLine={false}
+            />
+            <YAxis
+              dataKey="name"
+              type="category"
+              tick={{ fill: AXIS_VALUE_COLOR, fontSize: 12 }}
+              axisLine={false}
+              tickLine={false}
+              width={70}
+            />
             <Tooltip {...TOOLTIP_STYLE} />
-            <Bar dataKey="value" name="Projects" radius={[0, 3, 3, 0]}>
+            <Bar dataKey="value" name="Projects" radius={[0, 4, 4, 0]}>
               {priorityData.map((entry) => (
-                <Cell key={entry.name} fill={PRIORITY_COLORS[entry.name] ?? "#3f3f46"} />
+                <Cell key={entry.name} fill={PRIORITY_COLORS[entry.name] ?? "#334155"} />
               ))}
+              <LabelList
+                dataKey="value"
+                position="right"
+                style={{ fontSize: 12, fill: AXIS_VALUE_COLOR }}
+                formatter={(v) => (Number(v) > 0 ? String(v) : "")}
+              />
             </Bar>
           </BarChart>
         </ResponsiveContainer>
       </div>
 
       {/* Quarterly Load */}
-      <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-4">
-        <div className="text-xs font-semibold text-zinc-300 mb-4">Quarterly Project Load</div>
-        <ResponsiveContainer width="100%" height={220}>
+      <div className="bg-slate-900 border border-slate-800 rounded-lg p-4">
+        <div className="text-sm font-semibold text-slate-300 mb-4 uppercase tracking-wide">
+          Quarterly Project Load
+        </div>
+        <ResponsiveContainer width="100%" height={280}>
           <BarChart data={quarterData} barCategoryGap="30%">
-            <XAxis dataKey="name" tick={{ fill: "#71717a", fontSize: 11 }} axisLine={false} tickLine={false} />
-            <YAxis tick={{ fill: "#71717a", fontSize: 11 }} axisLine={false} tickLine={false} />
+            <XAxis
+              dataKey="name"
+              tick={{ fill: CHART_LABEL_COLOR, fontSize: 12 }}
+              axisLine={false}
+              tickLine={false}
+            />
+            <YAxis
+              tick={{ fill: CHART_LABEL_COLOR, fontSize: 12 }}
+              axisLine={false}
+              tickLine={false}
+            />
             <Tooltip {...TOOLTIP_STYLE} />
-            <Bar dataKey="total" name="Total" fill="#3f3f46" radius={[3, 3, 0, 0]} />
-            <Bar dataKey="inProgress" name="In Progress" fill="#2563eb" radius={[3, 3, 0, 0]} />
+            <Bar dataKey="total" name="Total" fill="#1e293b" radius={[4, 4, 0, 0]}>
+              <LabelList
+                dataKey="total"
+                position="top"
+                style={{ fontSize: 11, fill: AXIS_VALUE_COLOR }}
+                formatter={(v) => (Number(v) > 0 ? String(v) : "")}
+              />
+            </Bar>
+            <Bar dataKey="inProgress" name="In Progress" fill="#3b82f6" radius={[4, 4, 0, 0]}>
+              <LabelList
+                dataKey="inProgress"
+                position="top"
+                style={{ fontSize: 11, fill: "#3b82f6" }}
+                formatter={(v) => (Number(v) > 0 ? String(v) : "")}
+              />
+            </Bar>
           </BarChart>
         </ResponsiveContainer>
       </div>
 
       {/* Forecast vs At Risk */}
-      <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-4">
-        <div className="text-xs font-semibold text-zinc-300 mb-4">Forecasted Completions vs. At Risk</div>
-        <ResponsiveContainer width="100%" height={220}>
+      <div className="bg-slate-900 border border-slate-800 rounded-lg p-4">
+        <div className="text-sm font-semibold text-slate-300 mb-4 uppercase tracking-wide">
+          Forecasted Completions vs. At Risk
+        </div>
+        <ResponsiveContainer width="100%" height={280}>
           <BarChart data={forecastData} barCategoryGap="30%">
-            <XAxis dataKey="name" tick={{ fill: "#71717a", fontSize: 11 }} axisLine={false} tickLine={false} />
-            <YAxis tick={{ fill: "#71717a", fontSize: 11 }} axisLine={false} tickLine={false} />
+            <XAxis
+              dataKey="name"
+              tick={{ fill: CHART_LABEL_COLOR, fontSize: 12 }}
+              axisLine={false}
+              tickLine={false}
+            />
+            <YAxis
+              tick={{ fill: CHART_LABEL_COLOR, fontSize: 12 }}
+              axisLine={false}
+              tickLine={false}
+            />
             <Tooltip {...TOOLTIP_STYLE} />
-            <Bar dataKey="forecasted" name="Forecasted" fill="#16a34a" radius={[3, 3, 0, 0]} />
-            <Bar dataKey="atRisk" name="At Risk" fill="#ea580c" radius={[3, 3, 0, 0]} />
+            <Bar dataKey="forecasted" name="Forecasted" fill="#10b981" radius={[4, 4, 0, 0]}>
+              <LabelList
+                dataKey="forecasted"
+                position="top"
+                style={{ fontSize: 11, fill: "#10b981" }}
+                formatter={(v) => (Number(v) > 0 ? String(v) : "")}
+              />
+            </Bar>
+            <Bar dataKey="atRisk" name="At Risk" fill="#ef4444" radius={[4, 4, 0, 0]}>
+              <LabelList
+                dataKey="atRisk"
+                position="top"
+                style={{ fontSize: 11, fill: "#ef4444" }}
+                formatter={(v) => (Number(v) > 0 ? String(v) : "")}
+              />
+            </Bar>
           </BarChart>
         </ResponsiveContainer>
       </div>

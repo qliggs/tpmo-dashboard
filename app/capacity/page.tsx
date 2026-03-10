@@ -30,7 +30,7 @@ export default async function CapacityPage() {
     <>
       <Nav />
       <main className="max-w-screen-2xl mx-auto px-6 py-6 space-y-6">
-        <h1 className="text-sm font-semibold text-zinc-200">Capacity Intelligence</h1>
+        <h1 className="text-xl font-semibold text-slate-100 tracking-tight">Capacity Intelligence</h1>
 
         {capacity ? (
           <CapacityHeatmap data={capacity} />

@@ -20,7 +20,7 @@ export default async function EngineersPage() {
     <>
       <Nav />
       <main className="max-w-screen-2xl mx-auto px-6 py-6 space-y-4">
-        <h1 className="text-sm font-semibold text-zinc-200">Engineer Capacity</h1>
+        <h1 className="text-xl font-semibold text-slate-100 tracking-tight">Engineer Capacity</h1>
         {data ? (
           <EngineerTable engineers={data.engineers} projects={data.projects} />
         ) : (

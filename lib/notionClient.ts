@@ -1,7 +1,8 @@
 import { Client } from "@notionhq/client";
 import type { PageObjectResponse } from "@notionhq/client/build/src/api-endpoints";
-import { Engineer, Project, TShirtSize, Priority, ProjectStatus, Timeline } from "./types";
+import { Engineer, Project, Priority } from "./types";
 import { ENGINEERS } from "./rosterConfig";
+import { parseTimeline, safeTShirtSize, safeStatus } from "./utils";
 
 const notion = new Client({ auth: process.env.NOTION_API_KEY });
 
@@ -64,7 +65,11 @@ async function fetchAllPages(databaseId: string): Promise<PageObjectResponse[]> 
     const resp = await notion.databases.query(params);
 
     for (const page of resp.results) {
-      if (page.object === "page" && "properties" in page) {
+      if (
+        page.object === "page" &&
+        "properties" in page &&
+        !page.archived // skip archived pages
+      ) {
         pages.push(page as PageObjectResponse);
       }
     }
@@ -89,29 +94,37 @@ export async function fetchRawProjects(): Promise<
 > {
   const pages = await fetchAllPages(PROJECTS_DB);
 
-  return pages.map((page) => {
-    const engineerIds = getRelationIds(page, "Resources Needed");
+  return pages
+    .map((page) => {
+      const rawStatus = getSelect(page, "Status");
 
-    // Resolve engineer names from roster (fallback: match by Notion ID later)
-    const engineerNames: string[] = [];
+      // Skip projects with Archived or Cancelled status before any further processing
+      if (rawStatus === "Archived" || rawStatus === "Cancelled") return null;
 
-    return {
-      id: page.id,
-      initiative: getTitle(page, "Initiative"),
-      deliverable: getRichText(page, "Deliverable"),
-      startDate: getDate(page, "Start Date") ?? "",
-      endDate: getDate(page, "End Date") ?? "",
-      endDateCalculated: false,
-      // Notion field is "Size" (not "T-Shirt Size")
-      tshirtSize: (getSelect(page, "Size") as TShirtSize) ?? null,
-      priority: (getSelect(page, "Priority") as Priority) ?? null,
-      status: (getSelect(page, "Status") as ProjectStatus) ?? null,
-      // Timeline is rich_text in Notion (not a select)
-      timeline: ((getRichText(page, "Timeline") || null) as Timeline | null),
-      engineerIds,
-      engineerNames,
-    };
-  });
+      const engineerIds = getRelationIds(page, "Resources Needed");
+
+      // Normalize timeline via parser — handles Q1/H1/Q1-no-year/null
+      const rawTimeline = getRichText(page, "Timeline") || getSelect(page, "Timeline");
+      const timeline = parseTimeline(rawTimeline);
+
+      return {
+        id: page.id,
+        initiative: getTitle(page, "Initiative"),
+        deliverable: getRichText(page, "Deliverable"),
+        startDate: getDate(page, "Start Date") ?? "",
+        endDate: getDate(page, "End Date") ?? "",
+        endDateCalculated: false,
+        // Use safe cast — returns null for unrecognized values
+        tshirtSize: safeTShirtSize(getSelect(page, "Size")),
+        priority: (getSelect(page, "Priority") as Priority) ?? null,
+        // Use safeStatus — returns "Unknown" for unrecognized values, null if absent
+        status: safeStatus(rawStatus),
+        timeline,
+        engineerIds,
+        engineerNames: [],
+      };
+    })
+    .filter((p): p is NonNullable<typeof p> => p !== null);
 }
 
 /**
@@ -139,9 +152,10 @@ export async function fetchRawEngineers(): Promise<Engineer[]> {
       id: page.id,
       name,
       team: rosterEntry?.team ?? teamFromNotion ?? "Unknown",
-      allocationPct: getNumber(page, "Allocation %") != null
-        ? (getNumber(page, "Allocation %")! * 100) // Notion stores 0–1 fraction
-        : (rosterEntry?.capacity ?? 1) * 100,
+      allocationPct:
+        getNumber(page, "Allocation %") != null
+          ? getNumber(page, "Allocation %")! * 100 // Notion stores 0–1 fraction
+          : (rosterEntry?.capacity ?? 1) * 100,
       availableFrom: getDate(page, "Available From"),
       projectIds: getRelationIds(page, "Projects"),
     };

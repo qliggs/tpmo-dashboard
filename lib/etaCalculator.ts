@@ -1,4 +1,5 @@
-import { TShirtSize, Timeline } from "./types";
+import { TShirtSize } from "./types";
+import { safeDate, addWeeksToISO, parseTimeline } from "./utils";
 
 /** T-shirt size → weeks of effort */
 const SIZE_TO_WEEKS: Record<TShirtSize, number> = {
@@ -6,42 +7,40 @@ const SIZE_TO_WEEKS: Record<TShirtSize, number> = {
   M: 6,
   L: 12,
   XL: 24,
+  XXL: 36,
 };
 
-/** Quarter → first calendar day (current year) */
+/** Quarter → first calendar day [month (0-indexed), day] */
 const QUARTER_START: Record<string, [number, number]> = {
-  Q1: [0, 1],   // Jan 1
-  Q2: [3, 1],   // Apr 1
-  Q3: [6, 1],   // Jul 1
-  Q4: [9, 1],   // Oct 1
+  Q1: [0, 1],  // Jan 1
+  Q2: [3, 1],  // Apr 1
+  Q3: [6, 1],  // Jul 1
+  Q4: [9, 1],  // Oct 1
 };
-
-function addWeeks(date: Date, weeks: number): Date {
-  const result = new Date(date);
-  result.setDate(result.getDate() + weeks * 7);
-  return result;
-}
-
-function toISO(date: Date): string {
-  return date.toISOString().split("T")[0];
-}
 
 /**
- * Given a Timeline string like "Q2 2026", return the first day of that quarter
- * as a Date.
+ * Given a timeline string (any format — "Q2 2026", "H1 2026", "Q2", etc.),
+ * return the first day of the resolved quarter as a Date, or null if unparseable.
  */
-export function quarterStartDate(timeline: Timeline): Date {
-  const [quarter, yearStr] = timeline.split(" ");
-  const year = parseInt(yearStr, 10);
-  const [month, day] = QUARTER_START[quarter];
-  return new Date(year, month, day);
+export function quarterStartDate(timeline: string): Date | null {
+  const normalized = parseTimeline(timeline);
+  if (!normalized) return null;
+
+  const parts = normalized.split(" ");
+  const quarter = parts[0]; // "Q1" | "Q2" | "Q3" | "Q4"
+  const year = parseInt(parts[1], 10);
+
+  const qStart = QUARTER_START[quarter];
+  if (!qStart || isNaN(year)) return null;
+
+  return new Date(year, qStart[0], qStart[1]);
 }
 
 /**
  * Returns the number of weeks for a given T-shirt size.
  */
 export function sizeToWeeks(size: TShirtSize): number {
-  return SIZE_TO_WEEKS[size];
+  return SIZE_TO_WEEKS[size] ?? 4;
 }
 
 /**
@@ -59,35 +58,40 @@ export function calculateDates(
   startDateISO: string,
   endDateISO: string,
   tshirtSize: TShirtSize | null,
-  timeline: Timeline | null
+  timeline: string | null
 ): { startDate: string; endDate: string; endDateCalculated: boolean } {
   const durationWeeks = tshirtSize ? sizeToWeeks(tshirtSize) : 4;
 
-  let start: Date;
+  // Determine start date
+  let startDate: string;
   let endDateCalculated = false;
 
-  if (startDateISO) {
-    start = new Date(startDateISO);
+  const parsedStart = safeDate(startDateISO);
+  if (parsedStart) {
+    startDate = startDateISO;
   } else if (timeline) {
-    start = quarterStartDate(timeline);
+    const qStart = quarterStartDate(timeline);
+    if (qStart) {
+      startDate = qStart.toISOString().split("T")[0];
+    } else {
+      startDate = new Date().toISOString().split("T")[0];
+    }
     endDateCalculated = true;
   } else {
-    // Fallback: today
-    start = new Date();
+    startDate = new Date().toISOString().split("T")[0];
     endDateCalculated = true;
   }
 
-  let end: Date;
-  if (endDateISO) {
-    end = new Date(endDateISO);
+  // Determine end date
+  let endDate: string;
+  const parsedEnd = safeDate(endDateISO);
+  if (parsedEnd) {
+    endDate = endDateISO;
   } else {
-    end = addWeeks(start, durationWeeks);
+    const computed = addWeeksToISO(startDate, durationWeeks);
+    endDate = computed ?? new Date().toISOString().split("T")[0];
     endDateCalculated = true;
   }
 
-  return {
-    startDate: toISO(start),
-    endDate: toISO(end),
-    endDateCalculated,
-  };
+  return { startDate, endDate, endDateCalculated };
 }
